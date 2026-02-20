@@ -79,25 +79,24 @@ builder.Services.AddMemoryCache();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-// if (app.Environment.IsDevelopment())
-// {
-//     
-// }
-
 // CRITICAL: Add this BEFORE Swagger and UseHttpsRedirection
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
-app.UseSwagger();
-app.UseSwaggerUI();
-
-if (app.Configuration.GetValue<bool>("UseDeveloperExceptionPage"))
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+    
     app.UseDeveloperExceptionPage();
+}
 else
+{
     app.UseExceptionHandler("/error");
+}
 
 app.UseCors();
 app.UseResponseCaching();
