@@ -99,7 +99,6 @@ if (app.Configuration.GetValue<bool>("UseDeveloperExceptionPage"))
 else
     app.UseExceptionHandler("/error");
 
-app.UseHttpsRedirection();
 app.UseCors();
 app.UseResponseCaching();
 app.UseAuthorization();
