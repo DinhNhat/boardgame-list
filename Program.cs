@@ -23,14 +23,16 @@ builder.Host.UseSerilog((ctx, lc) => {
             "{Timestamp:HH:mm:ss} [{Level:u3}] " +
             "[{MachineName} #{ThreadId}] " +
             "{Message:lj}{NewLine}{Exception}",
-            rollingInterval: RollingInterval.Day);
+            rollingInterval: RollingInterval.Day, 
+            retainedFileCountLimit: 7, 
+            rollOnFileSizeLimit: true);
         lc.WriteTo.MySQL(connectionString, tableName: "LogEvents");
     },
     writeToProviders: true);
 
 builder.Services.AddCors(options => {
     options.AddDefaultPolicy(cfg => {
-        cfg.WithOrigins(builder.Configuration["AllowedOrigins"]);
+        cfg.WithOrigins(builder.Configuration["AllowedOrigins"] ?? string.Empty);
         cfg.AllowAnyHeader();
         cfg.AllowAnyMethod();
     });
