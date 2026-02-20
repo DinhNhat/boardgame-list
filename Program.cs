@@ -2,6 +2,7 @@ using BoardGameList.Constants;
 using BoardGameList.Models;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -83,6 +84,12 @@ var app = builder.Build();
 // {
 //     
 // }
+
+// CRITICAL: Add this BEFORE Swagger and UseHttpsRedirection
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 
 app.UseSwagger();
 app.UseSwaggerUI();
