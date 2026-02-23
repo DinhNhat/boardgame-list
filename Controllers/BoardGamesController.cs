@@ -1,11 +1,18 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Dynamic.Core;
 using System.Text.Json;
+using System.Threading.Tasks;
 using BoardGameList.Constants;
 using BoardGameList.DTO;
 using BoardGameList.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace BoardGameList.Controllers;
 
@@ -30,17 +37,22 @@ public class BoardGamesController : ControllerBase
 
     [HttpGet(Name = "GetBoardGames")]
     [ResponseCache(CacheProfileName = "Any-60")]
-    public async Task<RestDTO<BoardGame[]>> Get([FromQuery] RequestDTO<BoardGameDTO> input)
+    [SwaggerOperation(Summary = "Get a list of board games.",
+        Description = "Retrieves a list of board games with custom paging, sorting, and filtering rules.")]
+    public async Task<RestDTO<BoardGameListDto[]>> Get(
+        [FromQuery]
+        [SwaggerParameter("A DTO object that can be used to customize some retrieval parameters.")]
+        RequestDTO<BoardGameDTO> input)
     {
         _logger.LogInformation(CustomLogEvents.BoardGamesController_Get, "Get Board Game List method started");
-        var query = _context.BoardGames.AsQueryable();
+        var query = _context.BoardGames.MapBookToDto().AsQueryable();
         if (!string.IsNullOrEmpty(input.FilterQuery))
             query = query.Where(b => b.Name.Contains(input.FilterQuery));
         var recordCount = await query.CountAsync();
         
-        BoardGame[]? result = null;
+        BoardGameListDto[]? result = null;
         var cacheKey = $"{input.GetType()}-{JsonSerializer.Serialize(input)}";
-        if (!_memoryCache.TryGetValue<BoardGame[]>(cacheKey, out result))
+        if (!_memoryCache.TryGetValue<BoardGameListDto[]>(cacheKey, out result))
         {
             query = query
                 .OrderBy($"{input.SortColumn} {input.SortOrder}")
@@ -50,7 +62,7 @@ public class BoardGamesController : ControllerBase
             _memoryCache.Set(cacheKey, result, new TimeSpan(0, 0, 30));
         }
 
-        return new RestDTO<BoardGame[]>()
+        return new RestDTO<BoardGameListDto[]>()
         {
             Data = result,
             PageIndex = input.PageIndex,
@@ -64,8 +76,12 @@ public class BoardGamesController : ControllerBase
         };
     }
     
+    [Authorize(Roles = RoleNames.Moderator)]
     [HttpPost(Name = "UpdateBoardGame")]
     [ResponseCache(CacheProfileName = "NoCache")]
+    [SwaggerOperation(
+        Summary = "Updates a board game.",
+        Description = "Updates the board game's data.")]
     public async Task<RestDTO<BoardGame?>> Post(BoardGameDTO model)
     {
         var boardgame = await _context.BoardGames
@@ -103,8 +119,12 @@ public class BoardGamesController : ControllerBase
         };
     }
     
+    [Authorize(Roles = RoleNames.Administrator)]
     [HttpDelete(Name = "DeleteBoardGame")]
     [ResponseCache(CacheProfileName = "NoCache")]
+    [SwaggerOperation(
+        Summary = "Deletes a board game.",
+        Description = "Deletes a board game from the database.")]
     public async Task<RestDTO<BoardGame?>> Delete(int id)
     {
         var boardgame = await _context.BoardGames

@@ -20,5 +20,7 @@ namespace BoardGameList.DTO
         public int? PlayTime { get; set; }
 
         public int? MinAge { get; set; }
+        
+        public int? OwnedUsers { get; set; }
     }
 }

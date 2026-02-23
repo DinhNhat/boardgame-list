@@ -1,4 +1,5 @@
-﻿using BoardGameList.Attributes;
+﻿using System.Collections.Generic;
+using BoardGameList.Attributes;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 

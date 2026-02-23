@@ -1,4 +1,6 @@
-﻿namespace BoardGameList.DTO
+﻿using System.Collections.Generic;
+
+namespace BoardGameList.DTO
 {
     public class RestDTO<T>
     {

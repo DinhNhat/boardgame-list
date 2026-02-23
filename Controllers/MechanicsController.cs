@@ -1,11 +1,20 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System;
+using System.Collections.Generic;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BoardGameList.DTO;
 using BoardGameList.Models;
 using System.Linq.Expressions;
-using System.Linq.Dynamic.Core;
 using System.ComponentModel.DataAnnotations;
+using System.Linq.Dynamic.Core;
 using BoardGameList.Attributes;
+using Microsoft.Extensions.Caching.Distributed;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using BoardGameList.Constants;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 
 namespace BoardGameList.Controllers
 {
@@ -13,14 +22,20 @@ namespace BoardGameList.Controllers
     [ApiController]
     public class MechanicsController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+       private readonly ApplicationDbContext _context;
 
         private readonly ILogger<MechanicsController> _logger;
 
-        public MechanicsController(ApplicationDbContext context, ILogger<MechanicsController> logger)
+        private readonly IMemoryCache _memoryCache;
+
+        public MechanicsController(
+            ApplicationDbContext context,
+            ILogger<MechanicsController> logger,
+            IMemoryCache memoryCache)
         {
             _context = context;
             _logger = logger;
+            _memoryCache = memoryCache;
         }
 
         [HttpGet(Name = "GetMechanics")]
@@ -30,15 +45,24 @@ namespace BoardGameList.Controllers
             var query = _context.Mechanics.AsQueryable();
             if (!string.IsNullOrEmpty(input.FilterQuery))
                 query = query.Where(b => b.Name.Contains(input.FilterQuery));
+
             var recordCount = await query.CountAsync();
-            query = query
-                    .OrderBy($"{input.SortColumn} {input.SortOrder}")
-                    .Skip(input.PageIndex * input.PageSize)
-                    .Take(input.PageSize);
+
+            Mechanic[]? result = null;
+            var cacheKey = $"{input.GetType()}-{JsonSerializer.Serialize(input)}";
+            if (!_memoryCache.TryGetValue<Mechanic[]>(cacheKey, out result))
+            {
+                query = query
+                        .OrderBy($"{input.SortColumn} {input.SortOrder}")
+                        .Skip(input.PageIndex * input.PageSize)
+                        .Take(input.PageSize);
+                result = await query.ToArrayAsync();
+                _memoryCache.Set(cacheKey, result, new TimeSpan(0, 0, 30));
+            }
 
             return new RestDTO<Mechanic[]>()
             {
-                Data = await query.ToArrayAsync(),
+                Data = result!,
                 PageIndex = input.PageIndex,
                 PageSize = input.PageSize,
                 RecordCount = recordCount,
@@ -55,8 +79,9 @@ namespace BoardGameList.Controllers
             };
         }
 
+        [Authorize(Roles = RoleNames.Moderator)]
         [HttpPost(Name = "UpdateMechanic")]
-        [ResponseCache(NoStore = true)]
+        [ResponseCache(CacheProfileName = "NoCache")]
         public async Task<RestDTO<Mechanic?>> Post(MechanicDTO model)
         {
             var mechanic = await _context.Mechanics
@@ -88,8 +113,9 @@ namespace BoardGameList.Controllers
             };
         }
 
+        [Authorize]
         [HttpDelete(Name = "DeleteMechanic")]
-        [ResponseCache(NoStore = true)]
+        [ResponseCache(CacheProfileName = "NoCache")]
         public async Task<RestDTO<Mechanic?>> Delete(int id)
         {
             var mechanic = await _context.Mechanics
@@ -107,11 +133,7 @@ namespace BoardGameList.Controllers
                 Links = new List<LinkDTO>
                 {
                     new LinkDTO(
-                            Url.Action(
-                                null,
-                                "Mechanics",
-                                id,
-                                Request.Scheme)!,
+                            Url.Action(null, "Mechanics", id, Request.Scheme)!,
                             "self",
                             "DELETE"),
                 }
