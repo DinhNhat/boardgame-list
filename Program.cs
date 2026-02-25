@@ -27,6 +27,17 @@ using Swashbuckle.AspNetCore.Annotations;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 1. Configure the options
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    
+    // In production, Nginx is usually on loopback. 
+    // Clear these to allow headers from the local proxy.
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 // Entity Framework Core DbContext configuration
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
                        ?? throw new InvalidOperationException("Connection string 'DefaultConnection' for database book store not found.");
@@ -202,6 +213,8 @@ else
     });
 }
 
+// 2. Use the middleware (Must be near the top of the pipeline)
+app.UseForwardedHeaders();
 app.UseCors();
 app.UseResponseCaching();
 app.UseAuthentication();
